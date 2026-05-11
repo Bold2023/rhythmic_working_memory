@@ -31,3 +31,7 @@ rhythmic_working_memory/
     ├── Fig4/
     ├── Fig5/
     └── README.md              # Entry notebooks for manuscript figures
+
+## License
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
