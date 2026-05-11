@@ -4,6 +4,9 @@ This repository contains the code used to train and analyze a biologically const
 
 The model implements an excitatory/inhibitory recurrent neural network with short-term synaptic plasticity (STSP). The task is a delayed match-to-sample sequence-memory task in which the network receives a sequence of stimuli under rhythmic or arrhythmic temporal conditions and then reports whether the test sequence matches the sample sequence.
 
+## License
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
 ## Repository structure
 
 ```text
@@ -31,7 +34,3 @@ rhythmic_working_memory/
     ├── Fig4/
     ├── Fig5/
     └── README.md              # Entry notebooks for manuscript figures
-
-## License
-
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
