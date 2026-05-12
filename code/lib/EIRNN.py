@@ -122,14 +122,15 @@ class EIRNN(nn.Module):
         return init_syn_u
 
     def recurrence_syn(self, input, hidden, syn_x, syn_u):
-
         syn_x = syn_x + (self.params['alpha_std'] * (1 - syn_x) - self.params['dt_sec'] * syn_u * syn_x * hidden)
-        syn_u = syn_u + (self.params['alpha_stf'] * (self.params['U'] - syn_u) + self.params['dt_sec'] * self.params['U'] * (1 - syn_u) * hidden)
+        syn_u = syn_u + (self.params['alpha_stf'] * (self.params['U'] - syn_u) + self.params['dt_sec'] * self.params['U'] * (1-syn_u) * hidden)
 
-        # print(f'syn_x.shape: {syn_x.shape}, syn_u.shape: {syn_u.shape}, hidden.shape: {hidden.shape}')
+        #print(f'syn_x.shape: {syn_x.shape}, syn_u.shape: {syn_u.shape}, hidden.shape: {hidden.shape}')
 
         syn_x = torch.minimum(torch.tensor([1]).to(self.device), torch.relu(syn_x))
         syn_u = torch.minimum(torch.tensor([1]).to(self.device), torch.relu(syn_u))
+        # syn_x = torch.ones_like(hidden)
+        # syn_u = torch.ones_like(hidden)
 
         h_post = syn_u * syn_x * hidden
 
@@ -141,31 +142,43 @@ class EIRNN(nn.Module):
 
     def recurrence(self, input, hidden):
 
-        hidden = torch.relu(torch.sigmoid(
-            hidden * self.one_minus_alphaneuron
-            + torch.relu(self.input2h(input + self.noise_in)
-            + self.h2h(hidden) + self.noise_rnn) * self.params['alpha_neuron']
-        ))
+        hidden = torch.relu(hidden * self.one_minus_alphaneuron
+                + torch.relu(self.input2h(input + self.noise_in)
+                + self.h2h(hidden) + self.noise_rnn) * self.params['alpha_neuron'])
 
         return hidden
 
-    def _forward_syn(self, input, hidden=None, syn_x=None, syn_u=None):
+    def _forward_syn(self, input, hidden=None, syn_x=None, syn_u=None, shuffle_indices=None):
         batch_size = input.shape[1]
  
         if hidden is None:
-            #self.init_h.expand(*state_size).contiguous()
             hidden = self.init_hidden.expand(batch_size, self.params['hidden_size']).contiguous().to(self.device)
         if syn_x is None:
             syn_x = self.init_syn_x_state(batch_size)
         if syn_u is None:
             syn_u = self.init_syn_u_state(batch_size)
+                     
 
         self.hidden = []
         self.y = []
         self.syn_x = []
         self.syn_u = []
 
-        for step in input:
+        for t, step in enumerate(input):
+            if shuffle_indices is not None:
+                batch_indices = (shuffle_indices == t).nonzero(as_tuple=True)[0]
+                
+                if len(batch_indices) > 0:
+                    for b in batch_indices:
+                        perm = torch.randperm(self.params['hidden_size'], device=self.device)
+                        syn_x[b] = syn_x[b][perm]
+                        
+                        perm_u = torch.randperm(self.params['hidden_size'], device=self.device)
+                        syn_u[b] = syn_u[b][perm_u]
+
+                        # hidden[b] = hidden[b][perm]
+
+            
             if self.is_noise:
                 self.noise_in = torch.randn(step.shape).to(self.device) * self.params['noise_in']
                 self.noise_rnn = torch.randn((batch_size, self.params['hidden_size'])).to(self.device) * self.params['noise_rnn']
@@ -186,6 +199,7 @@ class EIRNN(nn.Module):
         self.y = torch.stack(self.y)
 
         return self.hidden, self.syn_x, self.syn_u, self.y
+
     
     def _forward(self, input, hidden=None):
         batch_size = input.shape[1]
@@ -193,6 +207,7 @@ class EIRNN(nn.Module):
         if hidden is None:
             #self.init_h.expand(*state_size).contiguous()
             hidden = self.init_hidden.expand(batch_size, self.params['hidden_size']).contiguous().to(self.device)
+                     
 
         self.hidden = []
         self.y = []
@@ -215,9 +230,9 @@ class EIRNN(nn.Module):
 
         return self.hidden, self.y
      
-    def forward(self, input, hidden=None, syn_x=None, syn_u=None):
+    def forward(self, input, hidden=None, syn_x=None, syn_u=None, shuffle_indices=None):
         if self.params['use_stsp']:
-            return self._forward_syn(input, hidden, syn_x, syn_u)
+            return self._forward_syn(input, hidden, syn_x, syn_u, shuffle_indices)
         else:
             return self._forward(input, hidden)
 
